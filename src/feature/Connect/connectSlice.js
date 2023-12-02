@@ -9,11 +9,7 @@ export const connectSlice=createSlice({
     name:'connect',
     initialState,
     reducers:{
-        sample:()=>{
-            alert("ok");
-        },
         connectWallet:(state,{payload})=>{
-           
            state.provider =payload.provider;
            state.address = payload.accountAddress;
            state.signer = payload.signer;

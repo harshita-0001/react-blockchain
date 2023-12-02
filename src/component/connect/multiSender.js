@@ -1,25 +1,22 @@
 import * as React from "react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Card from "@mui/material/Card";
-import CardContent from "@mui/material/CardContent";
 import Typography from "@mui/material/Typography";
-import { Button, TextField } from "@mui/material";
 import Box from "@mui/material/Box";
 import InputLabel from "@mui/material/InputLabel";
-import MenuItem from "@mui/material/MenuItem";
-import FormControl from "@mui/material/FormControl";
-import Select from "@mui/material/Select";
 import { BigNumber, ethers } from "ethers";
-import { useDispatch, useSelector } from "react-redux";
+import {  useDispatch, useSelector } from "react-redux";
 import { connectWallet, sample } from "../../feature/Connect/connectSlice";
 import { ToastContainer, toast } from "react-toastify";
 import Abijson from "./abi.json";
-import SwitchButton from "./switchButton";
-import LoadingButton from '@mui/lab/LoadingButton';
-import SaveIcon from '@mui/icons-material/Save';
-import Papa from 'papaparse';
+import Papa from "papaparse";
 import ExampleCsv from "./examplecsv";
-import ERC20Abi from './erc20.json';
+import ERC20Abi from "./erc20.json";
+
+//new css
+import "./multiSender.css";
+
+
 const MultiSender = () => {
   const [login, setLogin] = useState(false);
   const dispatch = useDispatch();
@@ -28,36 +25,44 @@ const MultiSender = () => {
   const [panding, setPanding] = useState(null);
   const data = useSelector((data) => data.connect);
   const [tokenAddress, setTokenAddress] = useState(null);
-  const [multiSenderAddress, setMultiSenderAddress] = useState("0x2Cb6f01295083DB39d213DD85d541D8691864725")
+  const [multiSenderAddress, setMultiSenderAddress] = useState(
+    "0x2Cb6f01295083DB39d213DD85d541D8691864725"
+  );
   const [signerAddress, setSigneAddress] = useState("");
-  const [isToken, setToken] = useState(false)
-  const[dataVal,setDataVal]=useState(["0x0000000000000000000000000000000000000000,0"]);
-  // select token or other network
-  const handleChange = async (event) => {
-    if (event.target.value === "token") {
-      setNetwork(event.target.value);
-      setToken(true)
-    }
-    else {
-      setToken(false)
+  const [isToken, setToken] = useState(false);
+  const [dataVal, setDataVal] = useState([
+    "0x0000000000000000000000000000000000000000,0",
+  ]);
+  const inputRefs = dataVal.map(() => React.createRef());
+  
  
-      const chainId = Number(
-        await window.ethereum.request({ method: "eth_chainId" })
-      );
-      const networkName = ethers.providers.getNetwork(chainId);
-      if (networkName.name === event.target.value) {
+  // select token or other network
+  async function getNetworkData(){
+    const chainId = Number(
+      await window.ethereum.request({ method: "eth_chainId" })
+    );
+    const networkName =  ethers.providers.getNetwork(chainId);
+    return networkName
+  }
+  const handleChange = async (event) => {
+    const eventValue=event.target.value
+
+    if (eventValue==='token') {
+      setNetwork(eventValue);
+      setToken(true);
+    }else{
+      setToken(false);
+      const networkName= await getNetworkData();
+      if (networkName.name === eventValue) {
         setNetwork(networkName.name);
       } else {
         toast.error("This Network are not connected");
       }
     }
-   
   };
 
-
   //conection
-  const connect = async () => {
-
+ const connect = async () => {
     if (typeof window.ethereum) {
       const provider = new ethers.providers.Web3Provider(window.ethereum);
       await provider.send("eth_requestAccounts", []);
@@ -65,8 +70,8 @@ const MultiSender = () => {
       const accountAddress = await signer.getAddress();
       const balance = await provider?.getBalance(accountAddress);
       const balanceInEth = ethers.utils.formatEther(balance);
-      setSigneAddress(accountAddress)
-
+      setSigneAddress(accountAddress);
+  
       dispatch(
         connectWallet({
           provider: provider,
@@ -87,7 +92,6 @@ const MultiSender = () => {
 
     if (tokenAddress) {
       try {
-    
         const contract = new ethers.Contract(
           multiSenderAddress,
           Abijson,
@@ -98,33 +102,37 @@ const MultiSender = () => {
           tokenAddress,
           ERC20Abi,
           data?.signer
-        )
-        const SplitData=await dataVal.map((a,i)=>{
-          const p=a.split(",");
-          row[i]={_to:"",_value:""};
-          row[i]._to=p[0].trim();
-          row[i]._value=p[1].trim();
+        );
+        const SplitData = await dataVal.map((a, i) => {
+          const p = a.split(",");
+          row[i] = { _to: "", _value: "" };
+          row[i]._to = p[0].trim();
+          row[i]._value = p[1].trim();
           setRows(row);
-        })
+        });
         const add = row.map((a) => a._to.trim());
-        const val = row.map((a) => ethers.utils.parseUnits(a._value.toString(), 'ether'));
+        const val = row.map((a) =>
+          ethers.utils.parseUnits(a._value.toString(), "ether")
+        );
         let sum = BigNumber.from(0);
-        val.forEach(amount => {
-          sum = sum.add(amount)
-        })
+        val.forEach((amount) => {
+          sum = sum.add(amount);
+        });
         const name = await ERC20Contract.name();
-        const allowance = await ERC20Contract.allowance(signerAddress, multiSenderAddress);
+        const allowance = await ERC20Contract.allowance(
+          signerAddress,
+          multiSenderAddress
+        );
         const allowanceInBigNum = BigNumber.from(allowance);
 
         if (allowanceInBigNum.gte(sum)) {
-          toast.success('sufficent allowance')
-        }
-        else {
+          toast.success("sufficent allowance");
+        } else {
           try {
-            const tx = await ERC20Contract.approve(multiSenderAddress, sum)
+            const tx = await ERC20Contract.approve(multiSenderAddress, sum);
             const receipt = await tx.wait();
           } catch (error) {
-              toast.error(error)
+            toast.error(error);
           }
         }
 
@@ -134,8 +142,7 @@ const MultiSender = () => {
           let transferValue;
           if (isUserVip) {
             transferValue = 0;
-          }
-          else {
+          } else {
             transferValue = await contract.txFee();
           }
 
@@ -144,26 +151,24 @@ const MultiSender = () => {
             add,
             val,
             {
-              value: transferValue
+              value: transferValue,
             }
-          )
-          setPanding(false)
-          const h = await successTransaction.wait()
+          );
+          setPanding(false);
+          const h = await successTransaction.wait();
           if (h) {
-            setPanding(true)
-            setDataVal(["0x0000000000000000000000000000000000000000,0"])
+            setPanding(true);
+            setDataVal(["0x0000000000000000000000000000000000000000,0"]);
           }
         } catch (error) {
-          toast.error(error.code)
+          toast.error(error.code);
         }
       } catch (error) {
         toast.error("error", error);
       }
-    }
-    else {
+    } else {
       toast.error("Enter Token Address");
     }
-
   };
 
   // bulkSendCoinWithDifferentValue
@@ -173,84 +178,85 @@ const MultiSender = () => {
       multiSenderAddress,
       Abijson,
       data?.signer
-    )
-    const SplitData=await dataVal.map((a,i)=>{
-      const p=a.split(",");
-      row[i]={_to:"",_value:""};
-      row[i]._to=p[0].trim();
-      row[i]._value=p[1].trim();
+    );
+    const SplitData = await dataVal.map((a, i) => {
+      const p = a.split(",");
+      row[i] = { _to: "", _value: "" };
+      row[i]._to = p[0].trim();
+      row[i]._value = p[1].trim();
       setRows(row);
-    })
+    });
     const add = row.map((a) => a._to.trim());
-    const val = row.map((a) => ethers.utils.parseUnits(a._value.toString(), 'ether'));
+    const val = row.map((a) =>
+      ethers.utils.parseUnits(a._value.toString(), "ether")
+    );
     let sum = BigNumber.from(0);
-    val.forEach(amount => {
-      sum = sum.add(amount)
-    })
+    val.forEach((amount) => {
+      sum = sum.add(amount);
+    });
     const isUserVip = await contract.isVIP(signerAddress);
     try {
       let transferValue;
       if (isUserVip) {
-
         transferValue = BigNumber.from(0);
-      }
-      else {
+      } else {
         transferValue = await contract.txFee();
       }
-      let ans = await contract.bulkSendETHWithDifferentValue(
-        add,
-        val, {
-        value: sum.add(transferValue)
-      }
-      )
+      let ans = await contract.bulkSendETHWithDifferentValue(add, val, {
+        value: sum.add(transferValue),
+      });
       setPanding(false);
-      const ethSuccess=await ans.wait();
-      if(ethSuccess)
-      {
-      setPanding(true);
-      setDataVal(["0x0000000000000000000000000000000000000000,0"])
-      setNetwork("")
+      const ethSuccess = await ans.wait();
+      if (ethSuccess) {
+        setPanding(true);
+        setDataVal(["0x0000000000000000000000000000000000000000,0"]);
+        setNetwork("");
       }
     } catch (error) {
-        toast.error(error.code)
+      toast.error(error.code);
     }
-  }
-
+  };
 
   // useffect for Transaction is panding or not
   useEffect(() => {
     if (panding === false) {
-      toast.warning("transction in pending")
-
+      toast.warning("transction in pending");
     }
     if (panding === true) {
-      toast.success("transction completed")
+      toast.success("transction completed");
+      setTimeout(()=>{
+          setPanding("")
+      },2000)
     }
-  }, [panding])
+  }, [panding]);
   // add and delete address and value
   const adressField = (e, i) => {
     let newArr = [...dataVal];
     if (e.key === "Enter") {
-      newArr.splice(i + 1, 0, " ")
-      setDataVal(newArr)
+      newArr.splice(i + 1, 0, " ");
+      setDataVal(newArr);
       return;
     }
     if (e.key === "Delete") {
-      newArr.splice(i, 1)
-      setDataVal(newArr)
+
+      if(newArr?.length==1) return
+     
+      if (i > 0) {
+        inputRefs[i - 1].current.focus();
+      }
+      newArr.splice(i, 1);
+      setDataVal(newArr);
 
       return;
     }
-
   };
   // change value
-  const changeVal=(e,i)=>{
+  const changeVal = (e, i) => {
     let val = e.target.value;
-    const v=[...dataVal]
-   v[i]=val;
-   setDataVal(v)
-    
-  }
+    const v = [...dataVal];
+    v[i] = val;
+    setDataVal(v);
+  };
 
   // for check User is Connected or Not
   async function isConnected() {
@@ -266,22 +272,20 @@ const MultiSender = () => {
     isConnected();
   }, [login]);
 
-
   //upload csv file
   const uploadFile = (e) => {
     Papa.parse(e.target.files[0], {
       header: false,
       skipEmptyLines: true,
       complete: function (result) {
-        const arr = [...row]
+        const arr = [...dataVal];
         result.data.map((val, i) => {
-          arr.push({ _to: val[0], _value: val[1] })
-        })
-        setRows(arr)
-      }
-    })
-  }
-
+          arr.push(val.toString());
+        });
+        setDataVal(arr);
+      },
+    });
+  };
   //Make user Vip
   const vipUser = async () => {
     const contract = new ethers.Contract(
@@ -293,212 +297,245 @@ const MultiSender = () => {
     const isVip = await contract.isVIP(signerAddress);
     if (!isVip) {
       const vipFee = await contract.VIPFee();
-      const bigNumberToInteger = ethers.utils.formatEther(vipFee)
+      const bigNumberToInteger = ethers.utils.formatEther(vipFee);
 
       if (data?.balance > bigNumberToInteger) {
-        const success = await contract.registerVIP({
-          value: vipFee
-        }).then((success) => {
-          if (success) {
-            toast.success("Succesfully Added into VipList")
-          }
-        }).catch(error => toast.error(error.code));
-
-      }
-      else {
-        toast.error("Dont'have Sufficet balance for pay VipFee")
+        const success = await contract
+          .registerVIP({
+            value: vipFee,
+          })
+          .then((success) => {
+            if (success) {
+              toast.success("Succesfully Added into VipList");
+            }
+          })
+          .catch((error) => toast.error(error.code));
+      } else {
+        toast.error("Dont'have Sufficet balance for pay VipFee");
       }
 
       return;
+    } else {
+      toast.info(`${signerAddress} already Vip user`);
     }
-    else {
-      toast.info(`${signerAddress} already Vip user`)
-    }
-
-
-  }
+  };
   const changeTokenAddress = (e) => {
-    setTokenAddress(e.target.value)
-  }
+    setTokenAddress(e.target.value);
+  };
   return (
-    <div style={{ width: '100%' }}>
+    <div style={{ width: "100%" }}>
       <Box
         sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          bgcolor: 'background.paper',
-
-          height: '100vh'
+          display: "flex",
+          flexFlow: "column",
+          gap: "1.8em",
+          justifyContent: "center",
+          alignItems: "center",
+          bgcolor: "background.paper",
+          backgroundColor: "#0b114c",
+          backgroundImage:
+            "radial-gradient(circle at left 60%,rgba(20,44,255,.4),rgba(20,44,255,0),rgba(20,44,255,0),rgba(20,44,255,0)),radial-gradient(circle at right 60%,rgba(20,44,255,.4),rgba(20,44,255,0),rgba(20,44,255,0),rgba(20,44,255,0));",
+          backgroundAttachment: "fixed",
+          height: "100vh",
         }}
       >
-
+         <div className="status-header">
+          <div className="status-header-wrap d-flex justify-content-between align-items-center w-100">
+            <div className="step">
+              <span className={`step-marker ${!panding && panding !== false &&'active'}`}>
+                <span>1</span>
+              </span>
+              <span className={`step-label ${!panding && panding !== false &&'active'}`}>Prepare</span>
+            </div>
+            <div className="step">
+              <span className={`step-marker ${panding===false && 'active'}`}>
+                <span>2</span>
+              </span>
+              <span className={`step-label ${panding===false && 'active'}`}>Approve</span>
+            </div>
+            <div className="step">
+              <span className={`step-marker ${panding===true && 'active'}`}>
+                <span>3</span>
+              </span>
+              <span className={`step-label ${panding===true && 'active'}`}>Multisend</span>
+            </div>
+          </div>
+        </div>
         <Card
           sx={{
             width: "650px",
-            m: 2,
-            py: { xs: 5, md: 4 },
-            px: { xs: 1 },
+            padding: "1.71em",
             borderRadius: 5,
+            border: "1px solid #415d9f",
+            background: "transparent",
           }}
         >
-          <div style={{
-            display: "flex",
-            justifyContent: "space-between"
+       
 
-          }} >
-            <div>
-              {
-                panding === true && <Button variant="contained" color="success">Success</Button>
-
-              }
-              {
-                panding === false && <LoadingButton
-                  color="warning"
-                  loading
-                  loadingPosition="start"
-                  startIcon={<SaveIcon />}
-                  variant="contained"
-                >
-                  pending
-                </LoadingButton>
-              }
-              {
-                !panding && panding !== false && <Button variant="contained" color="info" >Prepare</Button>
-              }
-            </div>
-            <div>
-              <Button variant="contained" color="info" onClick={() => vipUser()} disabled={login ? false : true}>Vip User</Button>
-            </div>
-          </div>
-          <Box sx={{ minWidth: 120 }}>
-            <FormControl sx={{ width: "90%" }}>
-              <Box sx={{ display: "flex", flexDirection: "row", flexWrap: 'wrap' }}>
-                <Box>
-                  <Typography sx={{ textAlign: "start", marginLeft: "5%", my: "1%" }}>Select Token</Typography>
-
-                  <InputLabel id="demo-simple-select-label" sx={{ marginTop: "30px" }}>Select Your Token</InputLabel>
-                  <Select
-                    labelId="demo-simple-select-label"
-                    id="demo-simple-select"
-                    value={network}
-                    label="Select Your Token"
-                    style={{ padding: '10px' }}
-                    onChange={handleChange}
-                    sx={{ width: { xs: 250, sm: 450, md: 450 }, height: 42, borderRadius: 3, mt: 1 }}
-                  >
-                    <MenuItem value="token">Token</MenuItem>
-                    <MenuItem value="maticmum">Mumbai</MenuItem>
-                  </Select>
-
-                </Box>
-                <Box >
-                  <Typography sx={{ textAlign: "start", my: "6%", mx: "10%" }}>Deflationary</Typography>
-                  <SwitchButton />
-                </Box>
-              </Box>
-            </FormControl>
-            <div style={{ display: !isToken && "none" }}>
-              <Typography sx={{ textAlign: "start", marginLeft: "6%", my: "1%" }}>Add Token Address</Typography>
-              <TextField
-                SelectProps={{ autoWidth: true }}
-                sx={{
-                  width: "85%",
-                  "& .MuiInputBase-root": {
-                    height: 45,
-                  },
-                  marginTop: "5px",
-                  marginLeft: "-5%",
-                  fieldset: { borderRadius: "10px" }
+          <div className="form-header">
+         
+            <div className="d-flex justify-content-end mb-3">
+              <button
+                type="button"
+                className="px-2 py-1"
+                style={{
+                  backgroundColor: "#00a6ff",
+                  border: "none",
+                  borderRadius: "5px",
+                  fontSize: "14px",
                 }}
-                type="text"
-                name="token"
-                style={{ borderColor: "transparent" }}
-                placeholder="Enter Token Address"
-                autoFocus
-                value={tokenAddress || ""}
-                onChange={(e) => changeTokenAddress(e)}
-              />
+                onClick={vipUser}
+              >
+                VIP User
+              </button>
             </div>
-          </Box>
-          <CardContent sx={{ width: "90%", mx: 1 }} >
-            <div style={{ display: "flex", flexWrap: 'wrap' }}>
-              <Typography sx={{ textAlign: "start", marginLeft: "2%", mb: 2 }} >List Of Address in CSV</Typography>
-              <Typography sx={{ textAlign: "end", position: "relative", right: { xs: 0, sm: -40, md: -50 }, top: { xs: "49%", md: 10 }, bottom: { md: "-20px" }, width: { md: "60%", sm: "60%", xs: "100%" }, fontSize: "12px" }} ><ExampleCsv /></Typography>
-            </div>
-            <div style={{ border: "1px solid black ", padding: "10px", borderRadius: 5, height: "100px", overflowY: row?.length < 5 ? "hidden" : "scroll", overflowX: { md: "hidden", sm: "scroll", xs: "scroll" } }}>
-              {dataVal?.map((_, i) => (
-                <Box
-                  sx={{ display: "flex", width: "100%" }}
-                  key={`row-${i + 1}`}
-                  id={`row-${i + 1}`}
+            <div className="d-flex justify-content-between align-items-center text-start">
+              <div className="flex-grow-1 me-1">
+                <label className="form-label">Token Address</label>
+                <select
+                  className="form-select"
+                  id="inputGroupSelect04"
+                  aria-label="Example select with button addon"
+                  value={network}
+                  onChange={handleChange}
                 >
-                  <div style={{ display: "flex" }}>
-                    <b><span style={{ marginRight: "1px", paddingTop: "12px" }}>{i + 1}</span></b>
-                    <TextField
-                      SelectProps={{ autoWidth: true }}
-                      sx={{
-                        width: 440,
-                        "& .MuiInputBase-root": {
-                          height: 25,
-
-                        },
-
-                        fieldset: { borderColor: "transparent" }
-
-                      }}
-                      
-                      type="text"
-                      style={{ borderColor: "transparent" }}
-                      onKeyUp={(e) => adressField(e, i)}
-                      autoFocus
-                      value={dataVal[i]}
-                      // value={`${row[i]?._to|| ""} ${row[i]?._value || ""}`}
-                      onChange={(e) => changeVal(e, i)}
-                    />
-                  </div>
-
-                </Box>
-              ))}
-
-
-            </div>
-            <div >
-
-              <div style={{ display: "flex", flexWrap: "wrap" }}>
-                <input type="file" id="file-input" name="file" accept=".csv" style={{ display: "none" }} onChange={(e) => uploadFile(e)} />
-
-                <InputLabel id="file-input-label" htmlFor="file-input"
-                  style={{
-                    fontSize: "1em",
-                    padding: "3px 15px",
-                    border: "1px solid black",
-                    borderRadius: "10px",
-                    marginLeft: "79%"
-                  }}
-                >Upload CSV</InputLabel>
+                  <option value="">Select Token</option>
+                  <option value="token">Token</option>
+                  <option value="maticmum">Mumbai</option>
+                </select>
+              </div>
+              <div className="flex-shrink-0 ms-1">
+                <label className="form-label mb-1" style={{ fontSize: "14px" }}>
+                  Deflationary <img src="/i-icon.png" alt="" />{" "}
+                </label>
+                <div style={{marginTop:'1px'}}>
+                  <label className="switch">
+                    <input type="checkbox"></input>
+                    <span className="slider"></span>
+                  </label>
+                </div>
               </div>
             </div>
-          </CardContent>
-          {login ? (
-            <Button variant="contained" onClick={isToken ? () => SendTransaction() : () => sendMultipleCoin()} sx={{ width: "90%", padding: 1.5, borderRadius: 3 }}>
-              Send
-            </Button>
+
+            <div className="" style={{ display: !isToken && "none" }}>
+              <Typography style={{fontSize:'12px'}}
+                sx={{ textAlign: "start", my: "2%" ,color:'white'}}
+              >
+                Add Token Address
+              </Typography>
+              
+              <input type="text" className="form-control" style={{backgroundColor:'transparent', border:'1px solid #415d9f '}}  value={tokenAddress || ""}
+                onChange={(e) => changeTokenAddress(e)}/>         
+
+            
+
+            </div>
+
+            <div className="my-4">
+              <div className="label-container d-flex justify-content-between mb-2">
+                <div className="label">List of Addresses in CSV</div>
+                <button type="button" className="show-example">
+                  <ExampleCsv />
+                </button>
+              </div>
+              <div className="main-container">
+                <div className="view-container-wrap d-flex">
+                  <div
+                    className="px-3 pt-2 d-flex flex-column"
+                    style={{
+                      border: "1px solid #415d9f",
+                      borderRight: "none",
+                      color: "##9ed8ff",
+                      background: "#16205C",
+                      borderTopLeftRadius: "5px",
+                      borderBottomLeftRadius: "5px",
+                    }}
+                  >
+                    {dataVal?.map((_, i) => (
+                      <span style={{ marginBottom: "10px", color: "#fff" }} key={`span-${i}`}>
+                        {i + 1}
+                      </span>
+                    ))}
+                  </div>
+                  <div
+                    style={{
+                      width: "100%",
+                      minHeight: "7em",
+                      background: "transparent",
+                      border: "1px solid #415d9f",
+                      borderTopRightRadius: "5px",
+                    }}
+                  >
+                    {dataVal?.map((_, i) => (
+                      <input
+                        className="form-control"
+                        style={{
+                          backgroundColor: "transparent",
+                          color: "#fff",
+                          border: "none",
+                        }}
+                        onKeyUp={(e) => adressField(e, i)}
+                        value={dataVal[i]}
+                        autoFocus
+                        ref={inputRefs[i]}
+                        onChange={(e) => changeVal(e, i)}
+                        key={i-'input'}
+                      ></input>
+                    ))}
+                  </div>
+                </div>
+                <div className="d-flex justify-content-end">
+                  <div style={{ display: "flex", flexWrap: "wrap" }}>
+                    <input
+                      type="file"
+                      id="file-input"
+                      name="file"
+                      accept=".csv"
+                      style={{ display: "none" }}
+                      onChange={(e) => uploadFile(e)}
+                    />
+                
+                    <InputLabel
+                      id="file-input-label"
+                      htmlFor="file-input"
+                      className="upload-btn"
+                    >
+                      Upload CSV
+                    </InputLabel>
+                   
+                  </div>
+               
+                </div>
+              </div>
+            </div>
+          </div>
+
+      
+             {login ? (
+            <button
+              type="button"
+              className="send-btn py-2"
+              onClick={
+                isToken ? () => SendTransaction() : () => sendMultipleCoin()
+              }
+            >
+              SEND
+            </button>
           ) : (
-            <Button variant="contained" onClick={() => connect()} sx={{ width: "90%" }}>
-              Connect Wallet
-            </Button>
+            <button
+              type="button"
+              className="send-btn py-2"
+              onClick={() => connect()}
+            >
+              CONNECT WALLET
+            </button>
           )}
-          <ToastContainer
-            position="top-right"
-            closeOnClick
-            autoClose={5000} />
+         
+          <ToastContainer position="top-right" closeOnClick autoClose={5000} />
         </Card>
       </Box>
-
     </div>
-  )
-
+  );
 };
 
 export default MultiSender;

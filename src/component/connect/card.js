@@ -76,10 +76,10 @@ export default function Connect() {
                   });
                   toast.success(`transction ${i + 1} completed`);
                 } catch (error) {
-                  console.log("ffff",error);
+                  toast.error(error);
                 }
               })
-              .catch((error) => console.log(error.message));
+              .catch((error) => toast.error("Something went Wrong"));
           }
         } else {
           // toast.warning(`Please Enter detail for ${i+1} transcation`)
